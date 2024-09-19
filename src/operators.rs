@@ -71,7 +71,34 @@ pub fn masked_softmax(y: &mut Tensor<f32>) {
 }
 
 pub fn rms_norm(y: &mut Tensor<f32>, x: &Tensor<f32>, w: &Tensor<f32>, epsilon: f32) {
-    todo!("实现 rms_norm，计算前做一些必要的检查会帮助你后续调试")
+    // todo!("实现 rms_norm，计算前做一些必要的检查会帮助你后续调试")
+    assert!(y.shape() == x.shape());
+    assert!(*y.shape().last().unwrap() == w.size());
+
+    let dim = w.size(); // n
+    let batch = x.size() / dim; // len/n
+    let _y = unsafe { y.data_mut() };
+    
+    (0..batch).for_each(|i| {
+        let x_i = x.slice(i * dim, w.shape());
+        
+        let coefficient = x_i.data()
+            .iter()
+            .map(|i| i * i)
+            .sum::<f32>() / (dim as f32) + epsilon;
+        let coefficient = coefficient.sqrt();
+
+        for (j, (&x_ij, w_j)) in x_i.data()
+            .iter()
+            .zip(w.data().iter())
+            .enumerate() {
+            _y[i * dim + j] = x_ij * w_j / coefficient;
+        }
+    });
+}
+
+fn sigmoid(x: f32) -> f32 {
+    1. / (1. + (-x).exp())
 }
 
 // y = sigmoid(x) * x * y
@@ -84,7 +111,7 @@ pub fn silu(y: &mut Tensor<f32>, x: &Tensor<f32>) {
     let _x = x.data();
 
     for (i, x_i) in _x.iter().enumerate() {
-        _y[i] = _y[i] * x_i / (1.0 + (-x_i).exp());
+        _y[i] = sigmoid(*x_i) * _y[i] * x_i;
     }
 }
 
