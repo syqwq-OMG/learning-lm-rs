@@ -7,6 +7,7 @@ pub struct Tensor<T> {
 }
 
 impl<T: Copy + Clone + Default> Tensor<T> {
+    /// generate a tensor according to data+shape
     pub fn new(data: Vec<T>, shape: &Vec<usize>) -> Self {
         let length = data.len();
         Tensor {
@@ -17,6 +18,7 @@ impl<T: Copy + Clone + Default> Tensor<T> {
         }
     }
 
+    /// generate a tensor with shape specified but default values
     pub fn default(shape: &Vec<usize>) -> Self {
         let length = shape.iter().product();
         let data = vec![T::default(); length];
@@ -27,6 +29,7 @@ impl<T: Copy + Clone + Default> Tensor<T> {
         &self.data[self.offset..][..self.length]
     }
 
+    /// return a mut ref of data
     pub unsafe fn data_mut(&mut self) -> &mut [T] {
         let ptr = self.data.as_ptr().add(self.offset) as *mut T;
         slice::from_raw_parts_mut(ptr, self.length)
