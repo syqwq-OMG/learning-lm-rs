@@ -78,23 +78,17 @@ pub fn rms_norm(y: &mut Tensor<f32>, x: &Tensor<f32>, w: &Tensor<f32>, epsilon: 
     let dim = w.size(); // n
     let batch = x.size() / dim; // len/n
     let _y = unsafe { y.data_mut() };
-    
-    (0..batch).for_each(|i| {
+
+    for i in 0..batch {
         let x_i = x.slice(i * dim, w.shape());
-        
-        let coefficient = x_i.data()
-            .iter()
-            .map(|i| i * i)
-            .sum::<f32>() / (dim as f32) + epsilon;
+
+        let coefficient = x_i.data().iter().map(|t| t * t).sum::<f32>() / (dim as f32) + epsilon;
         let coefficient = coefficient.sqrt();
 
-        for (j, (&x_ij, w_j)) in x_i.data()
-            .iter()
-            .zip(w.data().iter())
-            .enumerate() {
+        for (j, (&x_ij, w_j)) in x_i.data().iter().zip(w.data().iter()).enumerate() {
             _y[i * dim + j] = x_ij * w_j / coefficient;
         }
-    });
+    }
 }
 
 fn sigmoid(x: f32) -> f32 {
@@ -118,7 +112,29 @@ pub fn silu(y: &mut Tensor<f32>, x: &Tensor<f32>) {
 // C = beta * C + alpha * A @ B^T
 // hint: You don't need to do an explicit transpose of B
 pub fn matmul_transb(c: &mut Tensor<f32>, beta: f32, a: &Tensor<f32>, b: &Tensor<f32>, alpha: f32) {
-    todo!("实现 matmul_transb，计算前做一些必要的检查会帮助你后续调试");
+    // todo!("实现 matmul_transb，计算前做一些必要的检查会帮助你后续调试");
+    assert!(a.shape().last().unwrap() == b.shape().last().unwrap());
+    assert!(c.shape() == &vec![a.shape()[0], b.shape()[0]]);
+
+    let dim = *a.shape().last().unwrap(); // A 和 B 的共享维度
+    let m = a.shape()[0]; // A 的行数
+    let n = b.shape()[0]; // B 的行数 (转置后的 B 的列数)
+
+    let _c = unsafe { c.data_mut() };
+
+    for c_i in _c.iter_mut() {
+        *c_i *= beta;
+    }
+
+    for i in 0..m {
+        for j in 0..n {
+            let a_slice = a.slice(i * dim, &vec![dim]);
+            let b_slice = b.slice(j * dim, &vec![dim]);
+            let dot_product = dot(&a_slice, &b_slice);
+
+            _c[i * n + j] += alpha * dot_product;
+        }
+    }
 }
 
 // Dot product of two tensors (treated as vectors)
