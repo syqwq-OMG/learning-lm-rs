@@ -132,11 +132,11 @@ impl Llama<f32> {
         top_p: f32,
         top_k: u32,
         temperature: f32,
-    ) -> Vec<u32>{
+    ) -> Vec<u32> {
         let mut result = Vec::<u32>::new();
-        
+
         todo!("实现文本生成");
-        
+
         result
     }
 }
@@ -167,7 +167,19 @@ fn mlp(
     rms_w: &Tensor<f32>,
     eps: f32,
 ) {
-    todo!("Implement mlp");
+    // todo!("Implement mlp");
+    // hidden = rms_norm(residual)
+    OP::rms_norm(hidden_states, residual, rms_w, eps);
+    // gate = hidden @ gate_weight.T
+    OP::matmul_transb(gate, 0., hidden_states, w_gate, 1.);
+    // up = hidden @ up_weight.T
+    OP::matmul_transb(up, 0., hidden_states, w_up, 1.);
+    // intermediate = gate * sigmoid(gate) * up ## silu
+    OP::silu(up, gate);
+    // output = intermediate @ down_weight.T
+    OP::matmul_transb(hidden_states, 0., up, w_down, 1.);
+    // residual = output + residual
+    OP::add(residual, hidden_states);
 }
 
 #[test]
@@ -200,11 +212,11 @@ pub fn test_mlp() {
         &Tensor::<f32>::new(
             vec![
                 1.3429964, 1.7290739, 1.3429964, 1.7290739, 1.3429964, 1.7290739, 1.3429964,
-                1.7290739
+                1.7290739,
             ],
-            &vec![seq_len, d]
+            &vec![seq_len, d],
         ),
-        1e-3
+        1e-3,
     ))
 }
 
@@ -235,5 +247,4 @@ pub fn test_load_safetensors() {
     assert!(float_eq(&model.params.wk[1].data()[100], &-0.21386719, 1e-6));
     assert!(float_eq(&model.params.wv[0].data()[100], &0.041015625, 1e-6));
     assert!(float_eq(&model.params.wo[0].data()[100], &0.01965332, 1e-6));
-
 }

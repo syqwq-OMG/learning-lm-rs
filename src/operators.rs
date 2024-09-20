@@ -4,9 +4,9 @@ use crate::tensor::Tensor;
 pub fn gather(y: &mut Tensor<f32>, indices: &Tensor<u32>, table: &Tensor<f32>) {
     let length = indices.size();
     let table_shape = table.shape();
-    assert!(table_shape.len() == 2);
+    assert_eq!(table_shape.len(), 2);
     let dim = table_shape[1];
-    assert!(y.size() == length * dim);
+    assert_eq!(y.size(), length * dim);
     for i in 0..length {
         let src = &table.data()[indices.data()[i] as usize * dim..][..dim];
         let dst = &mut unsafe { y.data_mut() }[i * dim..][..dim];
@@ -14,10 +14,11 @@ pub fn gather(y: &mut Tensor<f32>, indices: &Tensor<u32>, table: &Tensor<f32>) {
     }
 }
 
+
 /// RoPE: Rotary Positional Embedding
 pub fn rope(y: &mut Tensor<f32>, start_pos: usize, theta: f32) {
     let shape = y.shape();
-    assert!(shape.len() == 3);
+    assert_eq!(shape.len(), 3);
     let seq_len = shape[0];
     let n_heads = shape[1];
     let d = shape[2];
@@ -72,12 +73,12 @@ pub fn masked_softmax(y: &mut Tensor<f32>) {
 
 pub fn rms_norm(y: &mut Tensor<f32>, x: &Tensor<f32>, w: &Tensor<f32>, epsilon: f32) {
     // todo!("实现 rms_norm，计算前做一些必要的检查会帮助你后续调试")
-    assert!(y.shape() == x.shape());
-    assert!(*y.shape().last().unwrap() == w.size());
+    assert_eq!(y.shape(), x.shape());
+    assert_eq!(*y.shape().last().unwrap(), w.size());
 
     let dim = w.size(); // n
     let batch = x.size() / dim; // len/n
-    let _y = unsafe { y.data_mut() };
+    let y_ = unsafe { y.data_mut() };
 
     for i in 0..batch {
         let x_i = x.slice(i * dim, w.shape());
@@ -86,7 +87,7 @@ pub fn rms_norm(y: &mut Tensor<f32>, x: &Tensor<f32>, w: &Tensor<f32>, epsilon: 
         let coefficient = coefficient.sqrt();
 
         for (j, (&x_ij, w_j)) in x_i.data().iter().zip(w.data().iter()).enumerate() {
-            _y[i * dim + j] = x_ij * w_j / coefficient;
+            y_[i * dim + j] = x_ij * w_j / coefficient;
         }
     }
 }
@@ -99,30 +100,31 @@ fn sigmoid(x: f32) -> f32 {
 // hint: this is an element-wise operation
 pub fn silu(y: &mut Tensor<f32>, x: &Tensor<f32>) {
     let len = y.size();
-    assert!(len == x.size());
+    assert_eq!(len, x.size());
 
-    let _y = unsafe { y.data_mut() };
-    let _x = x.data();
+    let y_ = unsafe { y.data_mut() };
+    let x_ = x.data();
 
-    for (i, x_i) in _x.iter().enumerate() {
-        _y[i] = sigmoid(*x_i) * _y[i] * x_i;
+    for (i, x_i) in x_.iter().enumerate() {
+        y_[i] = sigmoid(*x_i) * y_[i] * x_i;
     }
 }
 
-// C = beta * C + alpha * A @ B^T
+
 // hint: You don't need to do an explicit transpose of B
+/// C = beta * C + alpha * A @ B^T
 pub fn matmul_transb(c: &mut Tensor<f32>, beta: f32, a: &Tensor<f32>, b: &Tensor<f32>, alpha: f32) {
     // todo!("实现 matmul_transb，计算前做一些必要的检查会帮助你后续调试");
-    assert!(a.shape().last().unwrap() == b.shape().last().unwrap());
-    assert!(c.shape() == &vec![a.shape()[0], b.shape()[0]]);
+    assert_eq!(a.shape().last().unwrap(), b.shape().last().unwrap());
+    assert_eq!(c.shape(), &vec![a.shape()[0], b.shape()[0]]);
 
     let dim = *a.shape().last().unwrap(); // A 和 B 的共享维度
     let m = a.shape()[0]; // A 的行数
-    let n = b.shape()[0]; // B 的行数 (转置后的 B 的列数)
+    let n = b.shape()[0]; // B 的行数 
 
-    let _c = unsafe { c.data_mut() };
+    let c_ = unsafe { c.data_mut() };
 
-    for c_i in _c.iter_mut() {
+    for c_i in c_.iter_mut() {
         *c_i *= beta;
     }
 
@@ -132,8 +134,18 @@ pub fn matmul_transb(c: &mut Tensor<f32>, beta: f32, a: &Tensor<f32>, b: &Tensor
             let b_slice = b.slice(j * dim, &vec![dim]);
             let dot_product = dot(&a_slice, &b_slice);
 
-            _c[i * n + j] += alpha * dot_product;
+            c_[i * n + j] += alpha * dot_product;
         }
+    }
+}
+
+/// A = A + B
+pub fn add(a: &mut Tensor<f32>, b: &Tensor<f32>) {
+    assert_eq!(a.shape(), b.shape());
+    let a_ = unsafe { a.data_mut() };
+    let b_=b.data();
+    for i in 0..a_.len(){
+        a_[i]=a_[i]+b_[i];
     }
 }
 
@@ -141,19 +153,24 @@ pub fn matmul_transb(c: &mut Tensor<f32>, beta: f32, a: &Tensor<f32>, b: &Tensor
 #[allow(unused)]
 pub fn dot(x: &Tensor<f32>, y: &Tensor<f32>) -> f32 {
     let len = x.size();
-    assert!(len == y.size());
-    let x_ = x.data();
-    let y_ = y.data();
-    let mut sum = 0.0;
-    for i in 0..len {
-        sum += x_[i] * y_[i];
-    }
-    sum
+    assert_eq!(len, y.size());
+    // let x_ = x.data();
+    // let y_ = y.data();
+    // let mut sum = 0.0;
+    // for i in 0..len {
+    //     sum += x_[i] * y_[i];
+    // }
+    // sum
+    x.data()
+        .iter()
+        .zip(y.data().iter())
+        .map(|(i, j)| i * j)
+        .sum()
 }
 
 // Sample a index from a tensor (treated as a probability vector)
 pub fn random_sample(x: &Tensor<f32>, top_p: f32, top_k: u32, temperature: f32) -> u32 {
-    assert!(x.shape()[x.shape().len() - 1] == x.size());
+    assert_eq!(x.shape()[x.shape().len() - 1], x.size());
     if temperature <= 0. || top_k < 2 || top_p <= 0. {
         return x
             .data()
@@ -224,8 +241,13 @@ fn test_silu() {
     silu(&mut y, &x);
     assert!(y.close_to(
         &Tensor::<f32>::new(vec![1.4621172, 5.2847824, 11.43089], &vec![1, 3]),
-        1e-3
+        1e-3,
     ));
+}
+
+#[test]
+fn test_add() {
+    todo!();
 }
 
 #[test]
@@ -237,9 +259,9 @@ fn test_rms_norm() {
     assert!(y.close_to(
         &Tensor::<f32>::new(
             vec![0.6324554, 2.5298216, 0.8485281, 2.2627416],
-            &vec![2, 2]
+            &vec![2, 2],
         ),
-        1e-3
+        1e-3,
     ));
 }
 
@@ -251,6 +273,6 @@ fn test_matmul_transb() {
     matmul_transb(&mut c, 1., &a, &b, 1.);
     assert!(c.close_to(
         &Tensor::<f32>::new(vec![15., 34., 35., 81.], &vec![2, 2]),
-        1e-3
+        1e-3,
     ));
 }
