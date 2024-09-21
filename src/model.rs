@@ -1,3 +1,4 @@
+#![allow(unused)]
 use std::fs::File;
 use std::vec;
 
@@ -30,6 +31,7 @@ impl Llama<f32> {
         let config: LlamaConfigJson = serde_json::from_reader(config).unwrap();
         let model_file = std::fs::read(model_dir.as_ref().join("model.safetensors")).unwrap();
         let safetensor = SafeTensors::deserialize(&model_file).unwrap();
+        let nn=safetensor.names();
         let params = LLamaParams::from_safetensors(&safetensor, &config);
 
         Self {
@@ -141,6 +143,7 @@ impl Llama<f32> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn self_attention(
     hidden_states: &mut Tensor<f32>, // (seq, n_kv_h * n_groups * dqkv)
     att_scores: &mut Tensor<f32>,    // (n_kv_h, n_groups, seq, total_seq)
@@ -156,6 +159,7 @@ fn self_attention(
     todo!("Implement self_attention");
 }
 
+#[allow(clippy::too_many_arguments)]
 fn mlp(
     residual: &mut Tensor<f32>,
     hidden_states: &mut Tensor<f32>,

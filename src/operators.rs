@@ -14,7 +14,6 @@ pub fn gather(y: &mut Tensor<f32>, indices: &Tensor<u32>, table: &Tensor<f32>) {
     }
 }
 
-
 /// RoPE: Rotary Positional Embedding
 pub fn rope(y: &mut Tensor<f32>, start_pos: usize, theta: f32) {
     let shape = y.shape();
@@ -110,7 +109,6 @@ pub fn silu(y: &mut Tensor<f32>, x: &Tensor<f32>) {
     }
 }
 
-
 // hint: You don't need to do an explicit transpose of B
 /// C = beta * C + alpha * A @ B^T
 pub fn matmul_transb(c: &mut Tensor<f32>, beta: f32, a: &Tensor<f32>, b: &Tensor<f32>, alpha: f32) {
@@ -120,7 +118,7 @@ pub fn matmul_transb(c: &mut Tensor<f32>, beta: f32, a: &Tensor<f32>, b: &Tensor
 
     let dim = *a.shape().last().unwrap(); // A 和 B 的共享维度
     let m = a.shape()[0]; // A 的行数
-    let n = b.shape()[0]; // B 的行数 
+    let n = b.shape()[0]; // B 的行数
 
     let c_ = unsafe { c.data_mut() };
 
@@ -143,9 +141,9 @@ pub fn matmul_transb(c: &mut Tensor<f32>, beta: f32, a: &Tensor<f32>, b: &Tensor
 pub fn add(a: &mut Tensor<f32>, b: &Tensor<f32>) {
     assert_eq!(a.shape(), b.shape());
     let a_ = unsafe { a.data_mut() };
-    let b_=b.data();
-    for i in 0..a_.len(){
-        a_[i]=a_[i]+b_[i];
+    let b_ = b.data();
+    for i in 0..a_.len() {
+        a_[i] += b_[i];
     }
 }
 
@@ -247,7 +245,14 @@ fn test_silu() {
 
 #[test]
 fn test_add() {
-    todo!();
+    let mut a=Tensor::<f32>::new(vec![1.,2.,3.,4.], &vec![2,2]);
+    let b=Tensor::<f32>::new(vec![1.,2.,3.,4.], &vec![2,2]);
+    add(&mut a, &b);
+    assert!(a.close_to(
+        &Tensor::<f32>::new(
+            vec![2.,4.,6.,8.], 
+            &vec![2,2]), 
+        1e-3));
 }
 
 #[test]
